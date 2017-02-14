@@ -49,21 +49,39 @@ def kill_game(game):
     """
     TODO: If either client sends a bad message, immediately nuke the game.
     """
-    pass
+    game[0].close()
+    game[1].close()
+    return
 
 def compare_cards(card1, card2):
-    """
-    TODO: Given an integer card representation, return -1 for card1 < card2,
-    0 for card1 = card2, and 1 for card1 > card2
-    """
-    pass
+    if card1 > 51 or card2 > 51
+      return 3
+    if card1 < 0 or card2 < 0
+      return 3
+    if card1 == card2
+      return 3
+    if card1%13 > card2%13
+      return 0
+    elif card1%13 < card2%13
+      return 2
+    else
+      return 1
 
 def deal_cards():
     """
     TODO: Randomize a deck of cards (list of ints 0..51), and return two
     26 card "hands."
     """
-    pass
+    deck = [0]
+    for x in range(1, 52):
+      deck.append(x)
+    random.shuffle(deck)
+    a = deck[26:]
+    b = deck[:26]
+    del deck[:]
+    deck.append(a)
+    deck.append(b)
+    return deck
 
 def serve_game(host, port):
     """
@@ -71,7 +89,72 @@ def serve_game(host, port):
     perform the war protocol to serve a game of war between each client.
     This function should run forever, continually serving clients.
     """
-    pass
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((host, port))
+    s.listen(2)
+
+    player1, addr1 = s.accept()
+    player2, addr2 = s.accept()
+    data1 = player1.recv(2)
+    data2 = player2.recv(2)
+    game = [player1, player2]
+    if data1 != b'\0\0' or data2 != b'\0\0'
+      kill_game(game)
+      return
+    
+    deck = deal_cards()
+    hand1 = [1] + deck[0]
+    hand2 = [1] + deck[1]
+    player1.sendall(bytes(hand1))
+    player2.sendall(bytes(hand2))
+
+    for x in range(1, 27)
+      score = [0, 0]
+      data1 = player1.recv(2)
+      data2 = player2.recv(2)
+      if data1[0] != b'\2' or data2[0] != b'\2'
+        kill_game(game)
+        return
+        "CHECK LEGAL CARDS USING HAND1/2"
+      result = compare_cards(data1[1], data2[1])
+      if result == 3
+        kill_game(game)
+        return
+      elif result == 0
+        data1 = b'\3\0'
+        data2 = b'\3\2'
+        player1.sendall(bytes(data1))
+        player2.sendall(bytes(data2))
+	score[0] += 1
+      elif result == 1
+        data1 = b'\3\1'
+        data2 = b'\3\1'
+        player1.sendall(bytes(data1))
+        player2.sendall(bytes(data2))
+      else
+        data1 = b'\3\2'
+        data2 = b'\3\0'
+        player1.sendall(bytes(data1))
+        player2.sendall(bytes(data2))
+        score[1] += 1
+    if score[0] > score[1]
+      result = "Player 1 won!"
+      player1.sendall(bytes(result))
+      player2.sendall(bytes(result))
+      print(result)
+      kill_game(game)
+    elif score[0] < score[1]
+      result = "Player 2 won!"
+      player1.sendall(bytes(result))
+      player2.sendall(bytes(result))
+      print(result)
+      kill_game(game)
+    else
+      result = "This game was a draw."
+      player1.sendall(bytes(result))
+      player2.sendall(bytes(result))
+      print(result)
+      kill_game(game)
 
 async def limit_client(host, port, loop, sem):
     """
