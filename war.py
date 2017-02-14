@@ -54,17 +54,17 @@ def kill_game(game):
     return
 
 def compare_cards(card1, card2):
-    if card1 > 51 or card2 > 51
+    if card1 > 51 or card2 > 51:
       return 3
-    if card1 < 0 or card2 < 0
+    if card1 < 0 or card2 < 0:
       return 3
-    if card1 == card2
+    if card1 == card2:
       return 3
-    if card1%13 > card2%13
+    if card1%13 > card2%13:
       return 0
-    elif card1%13 < card2%13
+    elif card1%13 < card2%13:
       return 2
-    else
+    else:
       return 1
 
 def deal_cards():
@@ -98,7 +98,7 @@ def serve_game(host, port):
     data1 = player1.recv(2)
     data2 = player2.recv(2)
     game = [player1, player2]
-    if data1 != b'\0\0' or data2 != b'\0\0'
+    if data1 != b'\0\0' or data2 != b'\0\0':
       kill_game(game)
       return
     
@@ -108,48 +108,48 @@ def serve_game(host, port):
     player1.sendall(bytes(hand1))
     player2.sendall(bytes(hand2))
 
-    for x in range(1, 27)
+    for x in range(1, 27):
       score = [0, 0]
       data1 = player1.recv(2)
       data2 = player2.recv(2)
-      if data1[0] != b'\2' or data2[0] != b'\2'
+      if data1[0] != b'\2' or data2[0] != b'\2':
         kill_game(game)
         return
         "CHECK LEGAL CARDS USING HAND1/2"
       result = compare_cards(data1[1], data2[1])
-      if result == 3
+      if result == 3:
         kill_game(game)
         return
-      elif result == 0
+      elif result == 0:
         data1 = b'\3\0'
         data2 = b'\3\2'
         player1.sendall(bytes(data1))
         player2.sendall(bytes(data2))
 	score[0] += 1
-      elif result == 1
+      elif result == 1:
         data1 = b'\3\1'
         data2 = b'\3\1'
         player1.sendall(bytes(data1))
         player2.sendall(bytes(data2))
-      else
+      else:
         data1 = b'\3\2'
         data2 = b'\3\0'
         player1.sendall(bytes(data1))
         player2.sendall(bytes(data2))
         score[1] += 1
-    if score[0] > score[1]
+    if score[0] > score[1]:
       result = "Player 1 won!"
       player1.sendall(bytes(result))
       player2.sendall(bytes(result))
       print(result)
       kill_game(game)
-    elif score[0] < score[1]
+    elif score[0] < score[1]:
       result = "Player 2 won!"
       player1.sendall(bytes(result))
       player2.sendall(bytes(result))
       print(result)
       kill_game(game)
-    else
+    else:
       result = "This game was a draw."
       player1.sendall(bytes(result))
       player2.sendall(bytes(result))
