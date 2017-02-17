@@ -13,6 +13,7 @@ import sys
 
 Game = namedtuple("Game", ["p1", "p2"])
 
+
 class Command(Enum):
     """
     The byte values sent as the first byte of any message in the war protocol.
@@ -22,6 +23,7 @@ class Command(Enum):
     PLAYCARD = 2
     PLAYRESULT = 3
 
+
 class Result(Enum):
     """
     The byte values sent as the payload byte of a PLAYRESULT message.
@@ -30,9 +32,18 @@ class Result(Enum):
     DRAW = 1
     LOSE = 2
 
-def kill_game(game):
-    game[0].close()
-    game[1].close()
+k = 0
+
+
+def kill_game(writers):
+    # logging.error('{}'.format(str(writers)))
+    # global k
+    # k += 1
+    # logging.error('Exited game {} times.'.format(str(k)))
+    writers[0][0].close()
+    writers[0][1].close()
+    writers[1][0].close()
+    writers[1][1].close()
     return
 
 def compare_cards(card1, card2):
@@ -43,8 +54,8 @@ def compare_cards(card1, card2):
     if card1 == card2:
         return 3
 
-    print('Player 1 played: ', card1)
-    print('Player 2 played: ', card2)
+    # logging.error('Player 1 played: {}'.format(card1))
+    # logging.error('Player 2 played: {}'.format(card2))
     
     card1 = card1%13
     card2 = card2%13
@@ -68,18 +79,57 @@ def deal_cards():
     deck.append(b)
     return deck
 
+gamelist = []
+
 def serve_game(host, port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((host, port))
-    s.listen(2)
+    loop = asyncio.get_event_loop()
+    coroutine = asyncio.start_server(init_game, host, port, loop=loop)
+    server = loop.run_until_complete(coroutine)
 
-    player1, addr1 = s.accept()
-    player2, addr2 = s.accept()
-    data1 = player1.recv(2)
-    data2 = player2.recv(2)
-    game = [player1, player2]
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
 
+    server.close()
+    loop.run_until_complete(server.wait_closed())
+    loop.close()
+
+@asyncio.coroutine
+def init_game(reader, writer):
+
+    pair = socket.socketpair()
+
+    if not gamelist:
+        # logging.error('Client 1 has connected.')
+        # logging.error("{}".format(pair[1]))
+        gamelist.append((reader, writer, pair[1]))
+        return
+    else:
+        # logging.error('Client 2 has connected.')
+        player2 = gamelist.pop()
+        yield from play_game((reader, writer, pair[1]), player2)
+        return
+
+@asyncio.coroutine
+def play_game(player1, player2):
+    # logging.error('Starting a game...')
+    z = 1
+    y = 1
+    
+    data1 = yield from player1[0].read(2)
+    data2 = yield from player2[0].read(2)
+    game = [(player1[1], player1[2]), (player2[1], player2[2])]
+
+    # logging.error("Read from player 1 {} times.".format(str(z)))
+    # logging.error("{}".format(str(data1)))
+    # logging.error("Read from player 2 {} times.".format(str(y)))
+    # logging.error("{}".format(str(data2)))
+    # z += 1
+    # y += 1
+    
     if data1 != b'\0\0' or data2 != b'\0\0':
+        logging.error('Improper command was given, exiting game.')
         kill_game(game)
         return
     
@@ -88,22 +138,28 @@ def serve_game(host, port):
     hand2 = [1] + deck[1]
     hand1 = bytes(hand1)
     hand2 = bytes(hand2)
-    player1.sendall(hand1)
-    player2.sendall(hand2)
+    player1[1].write(hand1)
+    player2[1].write(hand2)
 
-    print('Sending to player 1: ', hand1)
-    print('Sending to player 2: ', hand2)
+    # logging.error('Sending to player 1: ', hand1)
+    # logging.error('Sending to player 2: ', hand2)
 
     for x in range(1, 27):
         score = [0, 0]
-        data1 = player1.recv(2)
-        data2 = player2.recv(2)
+        data1 = yield from player1[0].read(2)
+        data2 = yield from player2[0].read(2)
+
+        # logging.error("Read from player 1 {} times.".format(str(z)))
+        # logging.error("Read from player 2 {} times.".format(str(y)))
+        z += 1
+        y += 1
         
         if data1[0] != 2 or data2[0] != 2:
-            print('Improper command was given, exiting game.')
+            logging.error('Improper command was given, exiting game.')
             kill_game(game)
             return
-            "CHECK LEGAL CARDS USING HAND1/2"
+            # CHECK LEGAL CARDS USING HAND1/2
+        
         result = compare_cards(int(data1[1]), int(data2[1]))
         if result > 2:
             kill_game(game)
@@ -111,31 +167,31 @@ def serve_game(host, port):
         elif result == 0:
             data1 = b'\3\0'
             data2 = b'\3\2'
-            player1.sendall(bytes(data1))
-            player2.sendall(bytes(data2))
+            player1[1].write(data1)
+            player2[1].write(data2)
             score[0] += 1
-            print('Player 1 won the round.')
+            # logging.error('Player 1 won the round.')
         elif result == 1:
             data1 = b'\3\1'
             data2 = b'\3\1'
-            player1.sendall(bytes(data1))
-            player2.sendall(bytes(data2))
-            print('This round was a draw.')
+            player1[1].write(data1)
+            player2[1].write(data2)
+            # logging.error('This round was a draw.')
         else:
             data1 = b'\3\2'
             data2 = b'\3\0'
-            player1.sendall(bytes(data1))
-            player2.sendall(bytes(data2))
+            player1[1].write(data1)
+            player2[1].write(data2)
             score[1] += 1
-            print('Player 2 won the round.')
+            # logging.error('Player 2 won the round.')
     if score[0] > score[1]:
-        print("Player 1 won!")
+        # logging.error("Player 1 won!")
         kill_game(game)
     elif score[0] < score[1]:
-        print("Player 2 won!")
+        # logging.error("Player 2 won!")
         kill_game(game)
     else:
-        print("This game was a draw.")
+        # logging.error("This game was a draw.")
         kill_game(game)
     return
 
@@ -174,14 +230,14 @@ async def client(host, port, loop):
         logging.debug("Game complete, I %s", result)
         writer.close()
         return 1
-    except ConnectionResetError:
-        logging.error("ConnectionResetError")
+    except ConnectionResetError as exc:
+        logging.error("ConnectionResetError: {}".format(exc))
         return 0
     except asyncio.streams.IncompleteReadError:
         logging.error("asyncio.streams.IncompleteReadError")
         return 0
-    except OSError:
-        logging.error("OSError")
+    except OSError as exc:
+        logging.error("OSError: {}".format(exc))
         return 0
 
 def main(args):
