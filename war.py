@@ -32,7 +32,7 @@ class Result(Enum):
     DRAW = 1
     LOSE = 2
 
-k = 0
+# k = 0
 
 
 def kill_game(writers):
@@ -46,6 +46,7 @@ def kill_game(writers):
     writers[1][1].close()
     return
 
+
 def compare_cards(card1, card2):
     if card1 > 51 or card2 > 51:
         return 3
@@ -56,16 +57,15 @@ def compare_cards(card1, card2):
 
     # logging.error('Player 1 played: {}'.format(card1))
     # logging.error('Player 2 played: {}'.format(card2))
-    
-    card1 = card1%13
-    card2 = card2%13
-    
+    card1 = card1 % 13
+    card2 = card2 % 13
     if (card1 > card2):
         return 0
     elif (card1 < card2):
         return 2
     else:
         return 1
+
 
 def deal_cards():
     deck = [0]
@@ -81,6 +81,7 @@ def deal_cards():
 
 gamelist = []
 
+
 def serve_game(host, port):
     loop = asyncio.get_event_loop()
     coroutine = asyncio.start_server(init_game, host, port, loop=loop)
@@ -94,6 +95,7 @@ def serve_game(host, port):
     server.close()
     loop.run_until_complete(server.wait_closed())
     loop.close()
+
 
 @asyncio.coroutine
 def init_game(reader, writer):
@@ -111,28 +113,25 @@ def init_game(reader, writer):
         yield from play_game((reader, writer, pair[1]), player2)
         return
 
+
 @asyncio.coroutine
 def play_game(player1, player2):
     # logging.error('Starting a game...')
-    z = 1
-    y = 1
-    
+    # z = 1
+    # y = 1
     data1 = yield from player1[0].read(2)
     data2 = yield from player2[0].read(2)
     game = [(player1[1], player1[2]), (player2[1], player2[2])]
-
     # logging.error("Read from player 1 {} times.".format(str(z)))
     # logging.error("{}".format(str(data1)))
     # logging.error("Read from player 2 {} times.".format(str(y)))
     # logging.error("{}".format(str(data2)))
     # z += 1
     # y += 1
-    
     if data1 != b'\0\0' or data2 != b'\0\0':
         logging.error('Improper command was given, exiting game.')
         kill_game(game)
         return
-    
     deck = deal_cards()
     hand1 = [1] + deck[0]
     hand2 = [1] + deck[1]
@@ -148,18 +147,15 @@ def play_game(player1, player2):
         score = [0, 0]
         data1 = yield from player1[0].read(2)
         data2 = yield from player2[0].read(2)
-
         # logging.error("Read from player 1 {} times.".format(str(z)))
         # logging.error("Read from player 2 {} times.".format(str(y)))
-        z += 1
-        y += 1
-        
+        # z += 1
+        # y += 1
         if data1[0] != 2 or data2[0] != 2:
             logging.error('Improper command was given, exiting game.')
             kill_game(game)
             return
             # CHECK LEGAL CARDS USING HAND1/2
-        
         result = compare_cards(int(data1[1]), int(data2[1]))
         if result > 2:
             kill_game(game)
@@ -195,6 +191,7 @@ def play_game(player1, player2):
         kill_game(game)
     return
 
+
 async def limit_client(host, port, loop, sem):
     """
     Limit the number of clients currently executing.
@@ -202,6 +199,7 @@ async def limit_client(host, port, loop, sem):
     """
     async with sem:
         return await client(host, port, loop)
+
 
 async def client(host, port, loop):
     """
@@ -240,6 +238,7 @@ async def client(host, port, loop):
         logging.error("OSError: {}".format(exc))
         return 0
 
+
 def main(args):
     """
     launch a client/server
@@ -277,6 +276,7 @@ def main(args):
         logging.info("%d completed clients", res)
 
     loop.close()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
