@@ -32,14 +32,11 @@ class Result(Enum):
     DRAW = 1
     LOSE = 2
 
-# k = 0
 
-
+# MY WORK BEGINS HERE
+# Function to end the game, immediately severing all
+# connections.
 def kill_game(writers):
-    # logging.error('{}'.format(str(writers)))
-    # global k
-    # k += 1
-    # logging.error('Exited game {} times.'.format(str(k)))
     writers[0][0].close()
     writers[0][1].close()
     writers[1][0].close()
@@ -47,6 +44,9 @@ def kill_game(writers):
     return
 
 
+# Protocol to play the actual 'game'. If Player A has
+# a higher card than Player B or vice-versa, they win.
+# If the cards are the same value, the round is a draw.
 def compare_cards(card1, card2):
     if card1 > 51 or card2 > 51:
         return 3
@@ -67,6 +67,9 @@ def compare_cards(card1, card2):
         return 1
 
 
+# A simple function to create the 'decks' and then
+# randomize them a bit so the players don't get the
+# same hands everytime.
 def deal_cards():
     deck = [0]
     for x in range(1, 52):
@@ -79,10 +82,22 @@ def deal_cards():
     deck.append(b)
     return deck
 
+# A simple global list to keep track of all the games
+# currently in progress. Could also be implemented as a
+# dictionary if more sophisticated records, such as which
+# clients are in which games or a history of previous
+# games played, were required.
 gamelist = []
 
 
+# Set up the stateful network network protocol so that
+# more than just one pair of processes can play the game.
+# The server should run forever until the user manually
+# kills it with CTRL-C.
 def serve_game(host, port):
+    # We set up an event loop in Async IO and pass along
+    # the port information to each pair of 'players'. Then
+    # those connections should run until the game is done.
     loop = asyncio.get_event_loop()
     coroutine = asyncio.start_server(init_game, host, port, loop=loop)
     server = loop.run_until_complete(coroutine)
@@ -97,6 +112,11 @@ def serve_game(host, port):
     loop.close()
 
 
+# The function to set up the connection between two 'players'.
+# Each game will require a socket pair and the server must keep
+# track of all the games that are currently running. This is a
+# basic first-in first-out protocol, there is no smart
+# matchmaking in this program.
 @asyncio.coroutine
 def init_game(reader, writer):
 
@@ -104,7 +124,6 @@ def init_game(reader, writer):
 
     if not gamelist:
         # logging.error('Client 1 has connected.')
-        # logging.error("{}".format(pair[1]))
         gamelist.append((reader, writer, pair[1]))
         return
     else:
@@ -114,20 +133,22 @@ def init_game(reader, writer):
         return
 
 
+# The function to play the actual game, most of the work is done
+# here. The server should wait until it has been given the signal
+# to start a game by both players to ensure no one-sided games
+# occur where one process has disconnected or is lagging. Then it
+# should fire off a bit package representing the 'hand' each player
+# gets, and then wait for the players to make their moves by
+# returning with 'plays'. These must be interpreted correctly to
+# ensure no cheating occurs, ie playing eight kings in a row or
+# another impossible move. Finally, play the game protocol until
+# all cards in the deck have been exhausted.
 @asyncio.coroutine
 def play_game(player1, player2):
     # logging.error('Starting a game...')
-    # z = 1
-    # y = 1
     data1 = yield from player1[0].read(2)
     data2 = yield from player2[0].read(2)
     game = [(player1[1], player1[2]), (player2[1], player2[2])]
-    # logging.error("Read from player 1 {} times.".format(str(z)))
-    # logging.error("{}".format(str(data1)))
-    # logging.error("Read from player 2 {} times.".format(str(y)))
-    # logging.error("{}".format(str(data2)))
-    # z += 1
-    # y += 1
     if data1 != b'\0\0' or data2 != b'\0\0':
         logging.error('Improper command was given, exiting game.')
         kill_game(game)
@@ -139,23 +160,15 @@ def play_game(player1, player2):
     hand2 = bytes(hand2)
     player1[1].write(hand1)
     player2[1].write(hand2)
-
-    # logging.error('Sending to player 1: ', hand1)
-    # logging.error('Sending to player 2: ', hand2)
-
+    # Compare each round individually
     for x in range(1, 27):
         score = [0, 0]
         data1 = yield from player1[0].read(2)
         data2 = yield from player2[0].read(2)
-        # logging.error("Read from player 1 {} times.".format(str(z)))
-        # logging.error("Read from player 2 {} times.".format(str(y)))
-        # z += 1
-        # y += 1
         if data1[0] != 2 or data2[0] != 2:
             logging.error('Improper command was given, exiting game.')
             kill_game(game)
             return
-            # CHECK LEGAL CARDS USING HAND1/2
         result = compare_cards(int(data1[1]), int(data2[1]))
         if result > 2:
             kill_game(game)
@@ -192,6 +205,7 @@ def play_game(player1, player2):
     return
 
 
+# MY WORK ENDS HERE
 async def limit_client(host, port, loop, sem):
     """
     Limit the number of clients currently executing.
